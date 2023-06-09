@@ -1,12 +1,13 @@
 use anyhow::{Error, Result};
-use tokio::{sync::mpsc};
-use tokio_stream::StreamExt;
+use enigo::*;
+use tokio::sync::mpsc;
 use tokio_i3ipc::{
     event::{Event, Subscribe, WindowChange},
     msg::Msg,
     reply::{Node, NodeLayout, Rect},
     I3,
 };
+use tokio_stream::StreamExt;
 
 #[rustfmt::skip]
 fn split_rect(r: Rect) -> &'static str {
@@ -42,6 +43,7 @@ async fn main() -> Result<()> {
         };
 
         let i3 = &mut I3::connect().await?;
+        let mut enigo = enigo::Enigo::new();
 
         while let Some(Ok(Event::Window(window_data))) = event_listener.next().await {
             if WindowChange::Focus == window_data.change {
@@ -56,10 +58,15 @@ async fn main() -> Result<()> {
                 );
                 log::debug!("name={:?}, tabbed_parent={}", &name, tabbed_parent);
 
+                let center_x =
+                    window_data.container.rect.x + (window_data.container.rect.width / 2);
+                let center_y =
+                    window_data.container.rect.y + (window_data.container.rect.height / 2);
                 if !tabbed_parent {
                     send.send(split_rect(window_data.container.window_rect))
                         .await?;
                 }
+                enigo.mouse_move_to(center_x as i32, center_y as i32);
             }
         }
         log::debug!("Sender loop ended");
